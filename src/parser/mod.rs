@@ -33,7 +33,9 @@ lazy_static! {
         // *, /, %
         Operator::new(Rule::op_times, Assoc::Left) |
         Operator::new(Rule::op_slash, Assoc::Left) |
-        Operator::new(Rule::op_modulo, Assoc::Left),
+        Operator::new(Rule::op_modulo, Assoc::Left)|
+        Operator::new(Rule::op_floor_div, Assoc::Left)|
+        Operator::new(Rule::op_pow, Assoc::Left),
     ]);
     static ref COMPARISON_EXPR_CLIMBER: PrecClimber<Rule> = PrecClimber::new(vec![
         // <, <=, >, >=, ==, !=
@@ -233,6 +235,8 @@ fn parse_basic_expression(pair: Pair<Rule>) -> TeraResult<ExprVal> {
                 Rule::op_times => MathOperator::Mul,
                 Rule::op_slash => MathOperator::Div,
                 Rule::op_modulo => MathOperator::Modulo,
+                Rule::op_floor_div => MathOperator::TruncatedDiv,
+                Rule::op_pow => MathOperator::Power,
                 _ => unreachable!(),
             },
             rhs: Box::new(Expr::new(rhs?)),
@@ -373,6 +377,8 @@ fn parse_comparison_val(pair: Pair<Rule>) -> TeraResult<Expr> {
                 Rule::op_times => MathOperator::Mul,
                 Rule::op_slash => MathOperator::Div,
                 Rule::op_modulo => MathOperator::Modulo,
+                Rule::op_pow => MathOperator::Power,
+                Rule::op_floor_div => MathOperator::TruncatedDiv,
                 _ => unreachable!(),
             },
             rhs: Box::new(rhs?),
@@ -1124,6 +1130,8 @@ pub fn parse(input: &str) -> TeraResult<Vec<Node>> {
                     Rule::op_times => "`*`".to_string(),
                     Rule::op_slash => "`/`".to_string(),
                     Rule::op_modulo => "`%`".to_string(),
+                    Rule::op_pow => "`**`".to_string(),
+                    Rule::op_floor_div => "`//`".to_string(),
                     Rule::filter => "a filter".to_string(),
                     Rule::test => "a test".to_string(),
                     Rule::test_not => "a negated test".to_string(),

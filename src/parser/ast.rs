@@ -27,8 +27,12 @@ pub enum MathOperator {
     Mul,
     /// /
     Div,
+    /// //
+    TruncatedDiv,
     /// %
     Modulo,
+    /// **
+    Power,
 }
 
 impl fmt::Display for MathOperator {
@@ -41,7 +45,9 @@ impl fmt::Display for MathOperator {
                 MathOperator::Sub => "-",
                 MathOperator::Mul => "*",
                 MathOperator::Div => "/",
+                MathOperator::TruncatedDiv => "//",
                 MathOperator::Modulo => "%",
+                MathOperator::Power => "**",
             }
         )
     }

@@ -182,6 +182,27 @@ fn parse_variable_tag_lit_math_expression() {
 }
 
 #[test]
+fn parse_variable_tag_lit_math_expression_with_pow() {
+    let ast = parse("{{ count + 1 ** 2.5 }}").unwrap();
+
+    assert_eq!(
+        ast[0],
+        Node::VariableBlock(
+            WS::default(),
+            Expr::new(ExprVal::Math(MathExpr {
+                lhs: Box::new(Expr::new(ExprVal::Ident("count".to_string()))),
+                operator: MathOperator::Add,
+                rhs: Box::new(Expr::new(ExprVal::Math(MathExpr {
+                    lhs: Box::new(Expr::new(ExprVal::Int(1))),
+                    operator: MathOperator::Power,
+                    rhs: Box::new(Expr::new(ExprVal::Float(2.5))),
+                },))),
+            },))
+        ),
+    );
+}
+
+#[test]
 fn parse_variable_tag_lit_math_expression_with_parentheses() {
     let ast = parse("{{ (count + 1) * 2.5 }}").unwrap();
     assert_eq!(

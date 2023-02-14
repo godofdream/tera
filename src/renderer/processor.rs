@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::io::Write;
 
 use serde_json::{to_string_pretty, to_value, Number, Value};
@@ -862,6 +863,55 @@ impl<'a> Processor<'a> {
                             let ll = l.as_f64().unwrap();
                             let rr = r.as_f64().unwrap();
                             Number::from_f64(ll % rr)
+                        }
+                    }
+                    MathOperator::TruncatedDiv => {
+                        let ll = l.as_f64().unwrap();
+                        let rr = r.as_f64().unwrap();
+                        let res = ll / rr;
+                        if res.is_nan() {
+                            None
+                        } else if res.is_finite() {
+                            Some(Number::from(res as i64))
+                        } else {
+                            Number::from_f64(res)
+                        }
+                    }
+                    MathOperator::Power => {
+                        if let Some(ll) = l.as_f64() {
+                            if let Some(rr) = r.as_f64() {
+                                Number::from_f64(ll.powf(rr))
+                            } else if let Some(rr) = r.as_i64() {
+                                let rr_i32 = i32::try_from(rr).map_err(|err| Error::msg(format!(
+                                    "Tried to do calucalte power with to high numbers: {:?}**{:?} {}",
+                                    lhs, rhs, err.to_string()
+                                )))?;
+                                Number::from_f64(ll.powi(rr_i32))
+                            } else {
+                                None
+                            }
+                        } else if let Some(ll) = l.as_u64() {
+                            if let Some(rr) = r.as_u64() {
+                                let rr_u32 = u32::try_from(rr).map_err(|err| Error::msg(format!(
+                                    "Tried to do calucalte power with to high numbers: {:?}**{:?} {}",
+                                    lhs, rhs, err.to_string()
+                                )))?;
+                                Some(Number::from(ll.pow(rr_u32)))
+                            } else {
+                                None
+                            }
+                        } else if let Some(ll) = l.as_i64() {
+                            if let Some(rr) = r.as_u64() {
+                                let rr_u32 = u32::try_from(rr).map_err(|err| Error::msg(format!(
+                                    "Tried to do calucalte power with to high numbers: {:?}**{:?} {}",
+                                    lhs, rhs, err.to_string()
+                                )))?;
+                                Some(Number::from(ll.pow(rr_u32)))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
                         }
                     }
                 }
