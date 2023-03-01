@@ -1,39 +1,41 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use serde_json::{to_value, Value};
+use serde_json::{ Value};
 
 use crate::context::get_json_pointer;
+use crate::context_trait::ContextTrait;
 use crate::errors::{Error, Result};
 use crate::renderer::for_loop::{ForLoop, ForLoopState};
 use crate::renderer::stack_frame::{FrameContext, FrameType, StackFrame, Val};
 use crate::template::Template;
-use crate::Context;
+// use crate::Context;
 
-/// Contains the user data and allows no mutation
-#[derive(Debug)]
-pub struct UserContext<'a> {
-    /// Read-only context
-    inner: &'a Context,
-}
+// /// Contains the user data and allows no mutation
+// #[derive(Debug)]
+// pub struct UserContext<'a> {
+//     /// Read-only context
+//     inner: &'a dyn ContextTrait,
+// }
 
-impl<'a> UserContext<'a> {
-    /// Create an immutable user context to be used in the call stack
-    pub fn new(context: &'a Context) -> Self {
-        UserContext { inner: context }
-    }
+// impl<'a> UserContext<'a> {
+//     /// Create an immutable user context to be used in the call stack
+//     pub fn new(context: &'a dyn ContextTrait) -> Self {
+//         UserContext { inner: context }
+//     }
 
-    pub fn find_value(&self, key: &str) -> Option<&'a Value> {
-        self.inner.get(key)
-    }
+//     pub fn find_value(&self, key: &str) -> Option<&'a dyn ContextTrait> {
+//         self.inner.pointer(key)
+//     }
 
-    pub fn find_value_by_pointer(&self, pointer: &str) -> Option<&'a Value> {
-        assert!(pointer.starts_with('/'));
-        let root = pointer.split('/').nth(1).unwrap().replace("~1", "/").replace("~0", "~");
-        let rest = &pointer[root.len() + 1..];
-        self.inner.get(&root).and_then(|val| val.pointer(rest))
-    }
-}
+//     pub fn find_value_by_pointer(&self, pointer: &str) -> Option<&'a dyn ContextTrait> {
+//         assert!(pointer.starts_with('/'));
+//         let root = pointer.split('/').nth(1).unwrap().replace("~1", "/").replace("~0", "~");
+//         let rest = &pointer[root.len() + 1..];
+//         self.inner.pointer(&root).and_then(|val| val.pointer(rest))
+//     }
+// }
 
 /// Contains the stack of frames
 #[derive(Debug)]
@@ -41,15 +43,15 @@ pub struct CallStack<'a> {
     /// The stack of frames
     stack: Vec<StackFrame<'a>>,
     /// User supplied context for the render
-    context: UserContext<'a>,
+    context: &'a dyn ContextTrait,
 }
 
 impl<'a> CallStack<'a> {
     /// Create the initial call stack
-    pub fn new(context: &'a Context, template: &'a Template) -> CallStack<'a> {
+    pub fn new(context: &'a dyn ContextTrait, template: &'a Template) -> CallStack<'a> {
         CallStack {
             stack: vec![StackFrame::new(FrameType::Origin, "ORIGIN", template)],
-            context: UserContext::new(context),
+            context,
         }
     }
 
@@ -119,6 +121,7 @@ impl<'a> CallStack<'a> {
         }
 
         // Not in stack frame, look in user supplied context
+        self.context.pointer(key)
         if key.contains('.') {
             return self.context.find_value_by_pointer(&get_json_pointer(key)).map(Cow::Borrowed);
         } else if let Some(value) = self.context.find_value(key) {
@@ -195,37 +198,41 @@ impl<'a> CallStack<'a> {
         self.current_frame().active_template
     }
 
-    pub fn current_context_cloned(&self) -> Value {
-        let mut context = HashMap::new();
+    pub fn current_context_cloned(&self) -> Arc<dyn ContextTrait> {
+        let mut new_ctx: HashMap<Cow<&str>, Arc<dyn ContextTrait>> = HashMap::new();
 
         // Go back the stack in reverse to see what we have access to
         for frame in self.stack.iter().rev() {
-            context.extend(frame.context_owned());
+            //TODO new_ctx.extend(frame.context_owned());
+            
             if let Some(ref for_loop) = frame.for_loop {
-                context.insert(
-                    for_loop.value_name.to_string(),
+                new_ctx.insert(
+                    &for_loop.value_name,
                     for_loop.get_current_value().into_owned(),
                 );
                 if for_loop.is_key_value() {
-                    context.insert(
-                        for_loop.key_name.clone().unwrap(),
+                    new_ctx.insert(
+                        &for_loop.key_name.expect("we checked if key_name exists by is_key_value"),
                         Value::String(for_loop.get_current_key()),
                     );
                 }
             }
             // Macros don't have access to the user context, we're done
             if frame.kind == FrameType::Macro {
-                return to_value(&context).unwrap();
+                return new_ctx
             }
         }
 
         // If we are here we take the user context
         // and add the values found in the stack to it.
         // We do it this way as we can override global variable temporarily in forloops
-        let mut new_ctx = self.context.inner.clone();
-        for (key, val) in context {
-            new_ctx.insert(key, &val)
+        if let Some(iterable) = self.context.inner.context_iter() {
+            for (key, val) in iterable {
+                if !new_ctx.contains_key(key.as_ref()) {
+                    new_ctx.insert(key, val);
+                }
+            }
         }
-        new_ctx.into_json()
+        new_ctx
     }
 }

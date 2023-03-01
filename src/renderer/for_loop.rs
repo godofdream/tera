@@ -89,7 +89,7 @@ impl<'a> ForLoop<'a> {
     pub fn from_array(value_name: &str, values: Val<'a>) -> Self {
         ForLoop {
             key_name: None,
-            value_name: value_name.to_string(),
+            value_name: value_name.to_string(), //TODO switch to COW
             current: 0,
             values: ForLoopValues::Array(values),
             kind: ForLoopKind::Value,
@@ -100,7 +100,7 @@ impl<'a> ForLoop<'a> {
     pub fn from_string(value_name: &str, values: Val<'a>) -> Self {
         ForLoop {
             key_name: None,
-            value_name: value_name.to_string(),
+            value_name: value_name.to_string(), //TODO switch to COW
             current: 0,
             values: ForLoopValues::String(values),
             kind: ForLoopKind::Value,

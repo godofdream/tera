@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Write;
 
-use serde_json::{to_string_pretty, to_value, Number, Value};
+use serde_json::{to_value, Number, Value};
 
-use crate::context::{ValueRender, ValueTruthy};
+use crate::context_trait::{ContextTrait, ContextType};
 use crate::errors::{Error, Result};
 use crate::parser::ast::*;
 use crate::renderer::call_stack::CallStack;
@@ -15,7 +15,6 @@ use crate::renderer::stack_frame::{FrameContext, FrameType, Val};
 use crate::template::Template;
 use crate::tera::Tera;
 use crate::utils::render_to_string;
-use crate::Context;
 
 /// Special string indicating request to dump context
 static MAGICAL_DUMP_VAR: &str = "__tera_context";
@@ -123,7 +122,7 @@ impl<'a> Processor<'a> {
     pub fn new(
         template: &'a Template,
         tera: &'a Tera,
-        context: &'a Context,
+        context: &'a dyn ContextTrait,
         should_escape: bool,
     ) -> Self {
         // Gets the root template if we are rendering something with inheritance or just return
@@ -176,8 +175,8 @@ impl<'a> Processor<'a> {
 
         let container_val = self.safe_eval_expression(&for_loop.container)?;
 
-        let for_loop = match *container_val {
-            Value::Array(_) => {
+        let for_loop = match container_val.get_type() {
+            ContextType::Array => {
                 if for_loop.key.is_some() {
                     return Err(Error::msg(format!(
                         "Tried to iterate using key value on variable `{}`, but it isn't an object/map",
@@ -186,7 +185,7 @@ impl<'a> Processor<'a> {
                 }
                 ForLoop::from_array(&for_loop.value, container_val)
             }
-            Value::String(_) => {
+            ContextType::String => {
                 if for_loop.key.is_some() {
                     return Err(Error::msg(format!(
                         "Tried to iterate using key value on variable `{}`, but it isn't an object/map",
@@ -195,7 +194,7 @@ impl<'a> Processor<'a> {
                 }
                 ForLoop::from_string(&for_loop.value, container_val)
             }
-            Value::Object(_) => {
+            ContextType::Object => {
                 if for_loop.key.is_none() {
                     return Err(Error::msg(format!(
                         "Tried to iterate using key value on variable `{}`, but it is missing a key",
@@ -937,16 +936,17 @@ impl<'a> Processor<'a> {
 
     /// Looks up identifier and returns its value
     fn lookup_ident(&self, key: &str) -> Result<Val<'a>> {
-        // Magical variable that just dumps the context
-        if key == MAGICAL_DUMP_VAR {
-            // Unwraps are safe since we are dealing with things that are already Value
-            return Ok(Cow::Owned(
-                to_value(
-                    to_string_pretty(&self.call_stack.current_context_cloned().take()).unwrap(),
-                )
-                .unwrap(),
-            ));
-        }
+        //TODO fix dump
+        // // Magical variable that just dumps the context
+        // if key == MAGICAL_DUMP_VAR {
+        //     // Unwraps are safe since we are dealing with things that are already Value
+        //     return Ok(Cow::Owned(
+        //         to_value(
+        //             to_string_pretty(&self.call_stack.current_context_cloned().take()).unwrap(),
+        //         )
+        //         .unwrap(),
+        //     ));
+        // }
 
         process_path(key, &self.call_stack)
     }

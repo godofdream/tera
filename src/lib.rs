@@ -12,6 +12,7 @@
 mod macros;
 mod builtins;
 mod context;
+mod context_trait;
 mod errors;
 mod filter_utils;
 mod parser;

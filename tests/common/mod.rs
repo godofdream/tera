@@ -7,7 +7,7 @@ use std::io::prelude::*;
 
 use self::tera::Template;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Context)]
 pub struct Product {
     name: String,
     manufacturer: String,

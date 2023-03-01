@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::iter::FromIterator;
 
+use crate::context_trait::ContextTrait;
 use crate::errors::{Error, Result};
 use crate::utils::render_to_string;
 #[cfg(feature = "builtins")]
@@ -15,8 +16,6 @@ use chrono::{
 use chrono_tz::Tz;
 use serde_json::value::{to_value, Value};
 use serde_json::{to_string, to_string_pretty};
-
-use crate::context::ValueRender;
 
 // Returns the number of items in an array or an object, or the number of characters in a string.
 pub fn length(value: &Value, _: &HashMap<String, Value>) -> Result<Value> {

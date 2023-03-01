@@ -1,25 +1,26 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use serde_json::Value;
 
-use crate::context::get_json_pointer;
+use crate::context_trait::{ContextTrait};
 use crate::renderer::for_loop::ForLoop;
 use crate::template::Template;
 
-pub type Val<'a> = Cow<'a, Value>;
+pub type Val<'a> = Cow<'a, Arc<dyn ContextTrait>>;
 pub type FrameContext<'a> = HashMap<&'a str, Val<'a>>;
 
-/// Gets a value within a value by pointer, keeping lifetime
-#[inline]
-pub fn value_by_pointer<'a>(pointer: &str, val: &Val<'a>) -> Option<Val<'a>> {
-    match *val {
-        Cow::Borrowed(r) => r.pointer(&get_json_pointer(pointer)).map(Cow::Borrowed),
-        Cow::Owned(ref r) => {
-            r.pointer(&get_json_pointer(pointer)).map(|found| Cow::Owned(found.clone()))
-        }
-    }
-}
+// /// Gets a value within a value by pointer, keeping lifetime
+// #[inline]
+// pub fn value_by_pointer<'a>(pointer: &str, val: &Val<'a>) -> Option<Val<'a>> {
+//     match *val {
+//         Cow::Borrowed(context) => context.pointer(pointer).map(Cow::Borrowed),
+//         Cow::Owned(ref context) => {
+//             context.pointer(pointer).map(|found| Cow::Owned(found.clone()))
+//         }
+//     }
+// }
 
 /// Enumerates the types of stack frames
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -171,7 +172,7 @@ impl<'a> StackFrame<'a> {
             }
 
             if real_key == for_loop.value_name && !tail.is_empty() {
-                return value_by_pointer(tail, &v);
+                return v.pointer(tail);
             }
         }
 
@@ -190,13 +191,13 @@ impl<'a> StackFrame<'a> {
         }
     }
 
-    pub fn context_owned(&self) -> HashMap<String, Value> {
-        let mut context = HashMap::new();
+    // pub fn context_owned(&self) -> HashMap<&str, Value> {
+    //     let mut context: HashMap<&str, Value> = HashMap::new();
 
-        for (key, val) in &self.context {
-            context.insert((*key).to_string(), val.clone().into_owned());
-        }
+    //     for (key, val) in &self.context {
+    //         context.insert(*key, val.clone().into_owned());
+    //     }
 
-        context
-    }
+    //     context
+    // }
 }

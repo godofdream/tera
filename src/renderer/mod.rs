@@ -1,21 +1,20 @@
-mod square_brackets;
-#[cfg(test)]
-mod tests;
-
 mod call_stack;
 mod for_loop;
 mod macros;
 mod processor;
+mod square_brackets;
 mod stack_frame;
+#[cfg(test)]
+mod tests;
 
 use std::io::Write;
 
 use self::processor::Processor;
+use crate::context_trait::ContextTrait;
 use crate::errors::Result;
 use crate::template::Template;
 use crate::tera::Tera;
 use crate::utils::buffer_to_string;
-use crate::Context;
 
 /// Given a `Tera` and reference to `Template` and a `Context`, renders text
 #[derive(Debug)]
@@ -25,7 +24,7 @@ pub struct Renderer<'a> {
     /// Houses other templates, filters, global functions, etc
     tera: &'a Tera,
     /// Read-only context to be bound to template˝
-    context: &'a Context,
+    context: &'a dyn ContextTrait,
     /// If set rendering should be escaped
     should_escape: bool,
 }
@@ -33,7 +32,11 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     /// Create a new `Renderer`
     #[inline]
-    pub fn new(template: &'a Template, tera: &'a Tera, context: &'a Context) -> Renderer<'a> {
+    pub fn new(
+        template: &'a Template,
+        tera: &'a Tera,
+        context: &'a impl ContextTrait,
+    ) -> Renderer<'a> {
         let should_escape = tera.autoescape_suffixes.iter().any(|ext| {
             // We prefer a `path` if set, otherwise use the `name`
             if let Some(ref p) = template.path {

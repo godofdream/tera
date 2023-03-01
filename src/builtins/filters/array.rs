@@ -1,7 +1,8 @@
 /// Filters operating on array
 use std::collections::HashMap;
 
-use crate::context::{get_json_pointer, ValueRender};
+use crate::context::get_json_pointer;
+use crate::context_trait::ContextTrait;
 use crate::errors::{Error, Result};
 use crate::filter_utils::{get_sort_strategy_for_type, get_unique_strategy_for_type};
 use crate::utils::render_to_string;
@@ -21,7 +22,7 @@ pub fn nth(value: &Value, args: &HashMap<String, Value>) -> Result<Value> {
         None => return Err(Error::msg("The `nth` filter has to have an `n` argument")),
     };
 
-    Ok(arr.get(index).unwrap_or(&to_value("").unwrap()).to_owned())
+    Ok(arr.get(index.to_string()).unwrap_or(Box::new(serde_json::Value::Null) ))
 }
 
 /// Returns the first value of an array

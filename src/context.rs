@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::io::Write;
-use std::{collections::BTreeMap, iter};
 
 use serde::ser::Serialize;
 use serde_json::value::{to_value, Map, Value};
 
+use crate::context_trait::{ContextTrait, ContextType};
 use crate::errors::{Error, Result as TeraResult};
 
 /// The struct that holds the context of a template rendering.
@@ -135,46 +136,6 @@ impl Default for Context {
     }
 }
 
-pub trait ValueRender {
-    fn render(&self, write: &mut impl Write) -> std::io::Result<()>;
-}
-
-// Convert serde Value to String.
-impl ValueRender for Value {
-    fn render(&self, write: &mut impl Write) -> std::io::Result<()> {
-        match *self {
-            Value::String(ref s) => write!(write, "{}", s),
-            Value::Number(ref i) => {
-                if let Some(v) = i.as_i64() {
-                    write!(write, "{}", v)
-                } else if let Some(v) = i.as_u64() {
-                    write!(write, "{}", v)
-                } else if let Some(v) = i.as_f64() {
-                    write!(write, "{}", v)
-                } else {
-                    unreachable!()
-                }
-            }
-            Value::Bool(i) => write!(write, "{}", i),
-            Value::Null => Ok(()),
-            Value::Array(ref a) => {
-                let mut first = true;
-                write!(write, "[")?;
-                for i in a.iter() {
-                    if !first {
-                        write!(write, ", ")?;
-                    }
-                    first = false;
-                    i.render(write)?;
-                }
-                write!(write, "]")?;
-                Ok(())
-            }
-            Value::Object(_) => write!(write, "[object]"),
-        }
-    }
-}
-
 pub trait ValueNumber {
     fn to_number(&self) -> Result<f64, ()>;
 }
@@ -189,30 +150,30 @@ impl ValueNumber for Value {
     }
 }
 
-// From handlebars-rust
-pub trait ValueTruthy {
-    fn is_truthy(&self) -> bool;
-}
-
-impl ValueTruthy for Value {
+impl ContextTrait for Context {
+    #[inline]
     fn is_truthy(&self) -> bool {
-        match *self {
-            Value::Number(ref i) => {
-                if i.is_i64() {
-                    return i.as_i64().unwrap() != 0;
-                }
-                if i.is_u64() {
-                    return i.as_u64().unwrap() != 0;
-                }
-                let f = i.as_f64().unwrap();
-                f != 0.0 && !f.is_nan()
-            }
-            Value::Bool(ref i) => *i,
-            Value::Null => false,
-            Value::String(ref i) => !i.is_empty(),
-            Value::Array(ref i) => !i.is_empty(),
-            Value::Object(ref i) => !i.is_empty(),
-        }
+        self.data.is_truthy()
+    }
+    #[inline]
+    fn render_capacity_hint(&self) -> usize {
+        self.data.render_capacity_hint()
+    }
+    #[inline]
+    fn render(&self, write: &mut dyn Write) -> std::io::Result<()> {
+        self.data.render(write)
+    }
+    #[inline]
+    fn context_iter(&self) -> Option<Box<dyn Iterator<Item = (String, &dyn ContextTrait)>>> {
+        self.data.context_iter()
+    }
+    #[inline]
+    fn get_type(&self) -> ContextType {
+        self.data.get_type()
+    }
+    #[inline]
+    fn len(&self) -> usize {
+        self.data.len()
     }
 }
 
